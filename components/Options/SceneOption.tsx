@@ -13,7 +13,7 @@ const SceneOption = (props: { obs: OBSWebSocket, item: Scene, itemWidth: number 
             style={[{
                 borderRadius: 6,
                 aspectRatio: 1,
-                backgroundColor: EStyleSheet.value('$color'),
+                backgroundColor: EStyleSheet.value('$default'),
                 margin: 4,
                 alignContent: 'center',
                 justifyContent: 'center',

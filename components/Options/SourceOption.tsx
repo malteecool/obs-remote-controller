@@ -14,7 +14,7 @@ const SourceOption = (props: { obs: OBSWebSocket, item: Item, itemWidth: number 
             style={[{
                 borderRadius: 6,
                 aspectRatio: 1,
-                backgroundColor: EStyleSheet.value('$color'),
+                backgroundColor: EStyleSheet.value('$default'),
                 margin: 4,
                 alignContent: 'center',
                 justifyContent: 'center',

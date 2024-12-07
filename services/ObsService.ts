@@ -1,79 +1,118 @@
 import OBSWebSocket from "obs-websocket-js";
-import { Scene, SceneItem, SceneType, SceneWrapper } from "../Interfaces/Scene";
+import { Scene } from "../Interfaces/Scene";
 import { Stats } from "../Interfaces/Stats";
-import { Source } from "../Interfaces/Hotkey";
-import { Input } from "../Interfaces/Input";
+import { SceneItem } from "../Interfaces/SceneItem";
+import { ObsType, ObsTypeHelper } from "../Interfaces/Constants";
 
-export async function connect(obs: OBSWebSocket, password: string, ipAddress: string, port: string) {
+export default class ObsService {
 
-    const defaultIP: string = 'ws://192.168.1.166';
-    const defaultPort: string = '4455'
+    public obs: OBSWebSocket;
 
-    let errorMessage = ''
-    try {
-        const { obsWebSocketVersion, negotiatedRpcVersion } = await obs.connect((ipAddress ? ipAddress : defaultIP) + ':' + (port ? port : defaultPort), password);
-        console.log(`Connected to server ${obsWebSocketVersion}`);
-    } catch (error) {
-        if (error instanceof Error) {
-            errorMessage = error.message;
-            console.log(error);
+    constructor() {
+        this.obs = new OBSWebSocket();
+    }
+
+    public async connect(password: string, ipAddress: string, port: string) {
+
+        let errorMessage = ''
+        try {
+            const { obsWebSocketVersion, negotiatedRpcVersion } = await this.obs.connect((ipAddress) + ':' + (port), password);
+            console.log(`Connected to server ${obsWebSocketVersion}`);
+        } catch (error) {
+            if (error instanceof Error) {
+                errorMessage = error.message;
+                console.log(error);
+            }
+        } finally {
+            return errorMessage
         }
-    } finally {
-        return errorMessage
     }
 
-}
-
-export async function getScenes(obs: OBSWebSocket): Promise<Scene[]> {
-    const { scenes } = await obs.call('GetSceneList');
-    const scenesMapped = scenes as unknown as Scene[];
-    scenesMapped.forEach((scene: Scene) => scene.type = SceneType.SCENE);
-    return scenesMapped;
-}
-
-/*export async function getHotkeys(obs: OBSWebSocket): Promise<Hotkey[]> {
-    const { hotkeys } = await obs.call('GetHotkeyList')
-    const hotKeysMapped = hotkeys as unknown as Hotkey[];
-    return hotKeysMapped;
-}*/
-
-export async function getStats(obs: OBSWebSocket): Promise<Stats> {
-    const stats = await obs.call('GetStats');
-    console.log(stats);
-    return stats as Stats;
-}
-
-export async function getInputList(obs: OBSWebSocket, type: string | undefined): Promise<Input[]> {
-    const inputs = await obs.call('GetInputList');
-    const inputsMapped = (inputs).inputs as unknown as Input[];
-    if (type) {
-        return inputsMapped.filter((input) => input.inputKind == type);
+    public async getScenes(): Promise<Scene[]> {
+        const { scenes } = await this.obs.call('GetSceneList');
+        const scenesMapped = scenes as unknown as Scene[];
+        scenesMapped.forEach(async (scene: Scene) => scene.sceneItems = await this.getSceneItems(scene.sceneName));
+        return scenesMapped;
     }
-    return inputsMapped;
-}
 
-export async function getInputMute(obs: OBSWebSocket, inputName: string): Promise<boolean> {
-    const { inputMuted } = await obs.call('GetInputMute', { inputName: inputName });
-    return inputMuted;
-}
+    public async getCurrentScene(): Promise<string> {
+        const { currentProgramSceneName } = await this.obs.call('GetSceneList');
+        return currentProgramSceneName;
+    }
 
-export async function toggleInput(obs: OBSWebSocket, inputName: string): Promise<boolean> {
-    const { inputMuted } = await obs.call('ToggleInputMute', { inputName: inputName });
-    return inputMuted;
-}
+    public async getStats(): Promise<Stats> {
+        const stats = await this.obs.call('GetStats');
+        return stats as Stats;
+    }
 
-export async function setScene(obs: OBSWebSocket, sceneName: string) {
-    await obs.call('SetCurrentProgramScene', { sceneName: sceneName });
-}
+    public async getStreamStatus(): Promise<any> {
+        const status = await this.obs.call('GetStreamStatus');
+        return status;
+    }
 
-export async function getSceneItems(obs: OBSWebSocket, sceneName: string): Promise<SceneItem[]> {
-    const sceneItems = await obs.call('GetSceneItemList', {sceneName: sceneName});
-    const sourceTypes: string[] = [
-        'monitor_capture',
-        'game_capture',
-        'dshow_input',
-        'browser_source',
-    ]
-    
-    return sceneItems.sceneItems.filter((item) => sourceTypes.includes(item.inputKind as string)) as unknown as SceneItem[];
+    public async toggleInput(inputName: string): Promise<boolean> {
+        const { inputMuted } = await this.obs.call('ToggleInputMute', { inputName: inputName });
+        const enabled = !inputMuted;
+        return enabled;
+    }
+
+    public async setSceneItemEnabled(sceneItemId: number, sceneName: string, enable: boolean) {
+        await this.obs.call('SetSceneItemEnabled', {
+            sceneName: sceneName,
+            sceneItemId: sceneItemId,
+            sceneItemEnabled: enable
+        })
+    }
+
+    public async setScene(sceneName: string) {
+        await this.obs.call('SetCurrentProgramScene', { sceneName: sceneName });
+    }
+
+    public async getSceneItems(sceneName: string): Promise<SceneItem[]> {
+        const sceneItems = await this.obs.call('GetSceneItemList', { sceneName: sceneName });
+        return this.mapSceneInputs(sceneName, sceneItems.sceneItems);
+    }
+
+    private async handleItemAction(item: SceneItem): Promise<any> {
+        console.log(item.sourceType);
+        switch (item.sourceType) {    
+            case ObsType.BROSWER_SOURCE:
+            case ObsType.DSHOW_INPUT:
+            case ObsType.GAME_CAPTURE:
+            case ObsType.MONITOR_CAPTURE:
+            case ObsType.WASAPI_OUTPUT_CAPTURE:
+                console.log(item.sourceActive);
+                await this.setSceneItemEnabled(item.sourceId, item.sourceParentSceneName, !item.sourceActive);
+                return !item.sourceActive;
+            case ObsType.WASAPI_INPUT_CAPTURE:
+                return await this.toggleInput(item.sourceName);
+            default:
+                console.log("Invalid type.");
+                break;
+        }
+        return null;
+    }
+
+    private mapSceneInputs(sceneName: string, sceneItems: any[]): SceneItem[] {
+        if (sceneItems == null || sceneItems.length == 0) {
+            return [];
+        }
+        let mappedSceneItems: SceneItem[] = [];
+        sceneItems.forEach((item) => {
+            const type = ObsTypeHelper.lookup(item.inputKind);
+
+            const newItem: SceneItem = {
+                sourceId: item.sceneItemId,
+                sourceName: item.sourceName,
+                sourceType: type,
+                sourceActive: item.sceneItemEnabled,
+                sourceParentSceneName: sceneName
+            }
+            newItem.sourceAction = async () => {
+                return await this.handleItemAction(newItem);
+            }
+            mappedSceneItems.push(newItem);
+        });
+        return mappedSceneItems;
+    }
 }

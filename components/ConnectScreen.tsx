@@ -1,45 +1,57 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import CheckBox from "@react-native-community/checkbox";
 import Checkbox from "expo-checkbox";
 import { useEffect, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { LoadingIndicator } from "./LoadingIndicator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { connect } from "../services/ObsService";
 import EStyleSheet from "react-native-extended-stylesheet";
+import { NavigationProp } from "@react-navigation/native";
+import ObsService from "../services/ObsService";
 
-const defaultIP: string = 'ws://192.168.1.166';
-const defaultPort: string = '4455'
-
-export function ConnectScreen(props: { navigation: any, route: any }) {
+export function ConnectScreen(props: { navigation: NavigationProp<any, any>, route: any }) {
 
     const { navigation, route } = props;
 
-    const obs = route.params.obs;
+    const obsService = new ObsService();
+
+    const defaultIP: string = 'ws://192.168.1.165';
+    const defaultPort: string = '4455'
 
     const [password, setPassword] = useState<string>('');
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [storeSession, setStoreSession] = useState<boolean>(true);
     const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
     const [errorMessage, setErrorMessage] = useState<string>('');
-    const [customIp, setCustomIp] = useState<string>('');
-    const [customPort, setCustomPort] = useState<string>('');
+    const [customIp, setCustomIp] = useState<string>(defaultIP);
+    const [customPort, setCustomPort] = useState<string>(defaultPort);
     const [loading, setLoading] = useState<boolean>(false);
+
+    const saveSession = async (password: string, customIp: string, customPort: string) => {
+        await AsyncStorage.setItem('obsPassword', password);
+        await AsyncStorage.setItem('obsIp', customIp);
+        await AsyncStorage.setItem('obsPort', customPort);
+    }
 
     const load = async () => {
         try {
             setLoading(true);
             const storedPassword = await AsyncStorage.getItem('obsPassword');
-            if (!storedPassword) {
+
+            const storedIp = await AsyncStorage.getItem('obsIp');
+            console.log(storedIp)
+            const storedPort = await AsyncStorage.getItem('obsPort');
+            console.log(storedPassword);
+            if (!storedPassword || !storedIp || !storedPort) {
                 return;
             }
             setPassword(storedPassword);
-            if (!obs.identified) {
-                const errorMessage: string = await connect(obs, storedPassword, customIp, customPort);
+            if (obsService.obs && !obsService.obs.identified) {
+                const errorMessage: string = await obsService.connect(storedPassword, storedIp, storedPort);
                 if (errorMessage) {
                     setErrorMessage(errorMessage);
                 } else {
-                    navigation.navigate('sceneScreen', {obs: obs});
+                    navigation
+                    navigation.navigate('sceneScreen', { obsService: obsService });
                 }
             }
         }
@@ -55,13 +67,24 @@ export function ConnectScreen(props: { navigation: any, route: any }) {
     }, []);
 
     const manuallyConnect = async () => {
-        const errorMessage: string = await connect(obs, password, customIp, customPort);
+
+        if (!customIp.startsWith("ws://")) {
+            setCustomIp("ws://" + customIp);
+        }
+
+        const errorMessage: string = await obsService.connect(password, customIp, customPort);
         if (errorMessage) {
             setErrorMessage(errorMessage);
         } else {
-            navigation.navigate('sceneScreen', {obs: obs});
+
+            if (storeSession) {
+                saveSession(password, customIp, customPort);
+            }
+            navigation.navigate('sceneScreen', { obsService: obsService });
         }
     }
+
+
 
     if (loading) {
         return (
@@ -109,7 +132,7 @@ export function ConnectScreen(props: { navigation: any, route: any }) {
 
                 <View style={{ flex: 1 }}>
                     <TouchableOpacity style={{ alignSelf: 'center', paddingBottom: 16 }} onPress={() => setShowAdvanced(!showAdvanced)}>
-                        <Text style={{ textAlign: 'center', alignSelf: 'flex-start', fontSize: 16, color: EStyleSheet.value('$color'), borderBottomColor: '#0085FF', borderBottomWidth: 1 }}>Advanced</Text>
+                        <Text style={{ textAlign: 'center', alignSelf: 'flex-start', fontSize: 16, color: EStyleSheet.value('$default'), borderBottomColor: '#0085FF', borderBottomWidth: 1 }}>Advanced</Text>
                     </TouchableOpacity>
                     {
                         showAdvanced && (
@@ -154,7 +177,7 @@ export function ConnectScreen(props: { navigation: any, route: any }) {
                 errorMessage && <Text style={{ textAlign: 'center', color: 'red', fontSize: 16 }}>Could not connect: {errorMessage}</Text>
             }
             <View style={{}}>
-                <TouchableOpacity style={{ backgroundColor: EStyleSheet.value('$color'), height: 50, justifyContent: 'center', alignContent: 'center', margin: 16, borderRadius: 4 }}
+                <TouchableOpacity style={{ backgroundColor: EStyleSheet.value('$default'), height: 50, justifyContent: 'center', alignContent: 'center', margin: 16, borderRadius: 4 }}
                     onPress={() => manuallyConnect()}>
                     <Text style={{ textAlign: 'center', color: 'white', fontSize: 20 }}>Connect</Text>
                 </TouchableOpacity>
@@ -164,6 +187,4 @@ export function ConnectScreen(props: { navigation: any, route: any }) {
             </View>
         </View>
     )
-
-
 }

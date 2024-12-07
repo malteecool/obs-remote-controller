@@ -1,32 +1,7 @@
-import { BaseItem } from "./Item"
+import { SceneItem } from "./SceneItem";
 
-export enum SceneType {
-    DEFAULT,
-    SCENE,
-    SOURCE,
-    INPUT,
-}
-
-export interface Scene extends BaseItem {
+export interface Scene {
     sceneIndex: number,
-    sceneName: string
-}
-
-export interface SceneItem {
-    inputKind: string,
-    isGroup: string | null,
-    sceneItemBlendMode: string, 
-    sceneItemEnabled: boolean,
-    sceneItemId: number,
-    sceneItemIndex: number,
-    sceneItemLocked: boolean,
-    sceneItemTransform: null,
-    sourceName: string,
-    sourceType: string,
-}
-
-
-export interface SceneWrapper {
-    scene: Scene,
-    sceneItems: SceneItem[]
+    sceneName: string,
+    sceneItems?: SceneItem[];
 }

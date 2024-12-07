@@ -1,21 +1,18 @@
 import OBSWebSocket from "obs-websocket-js";
 import { useEffect, useState } from "react";
-import { Alert, BackHandler, Dimensions, FlatList, ListRenderItem, Text, TouchableOpacity, View } from "react-native"
+import { Alert, Dimensions, FlatList, ListRenderItem, Text, TouchableOpacity, View } from "react-native"
 import { LoadingIndicator } from "./LoadingIndicator";
-import { Scene, SceneType } from "../Interfaces/Scene";
+import { Scene } from "../Interfaces/Scene";
 import { Stats } from "../Interfaces/Stats";
 import EStyleSheet from "react-native-extended-stylesheet";
-import { getInputList, getInputMute, getScenes, getStats, setScene, toggleInput } from "../services/ObsService";
 import { Dropdown } from "react-native-element-dropdown";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SceneConfig } from "../Interfaces/SceneConfig";
 import { emitter } from "../CustomEventEmitter";
-import InputOption from "./Options/InputOption";
-import SceneOption from "./Options/SceneOption";
-import { Item } from "../Interfaces/Type";
-import { Source } from "../Interfaces/Hotkey";
-import { Input } from "../Interfaces/Input";
+import { DropdownOption } from "../Interfaces/DropdownOption";
+import { SceneItem } from "../Interfaces/SceneItem";
+import ObsService from "../services/ObsService";
+import { ObsType, TypeDetails } from "../Interfaces/Constants";
 
 export function SceneScreen(props: { navigation: any, route: any }) {
 
@@ -23,59 +20,39 @@ export function SceneScreen(props: { navigation: any, route: any }) {
     const itemWidth = Dimensions.get('window').width / numColumns;
 
     const { navigation, route } = props;
-    const obs: OBSWebSocket = route.params.obs;
+    const obsService: ObsService = route.params.obsService;
 
     const [loading, setLoading] = useState<boolean>(false);
     const [scenes, setScenes] = useState<Scene[]>();
+    const [selectedScene, setSelectedScene] = useState<Scene>();
+    const [sceneItems, setSceneItems] = useState<SceneItem[]>();
     const [stats, setStats] = useState<Stats>();
     const [live, setLive] = useState<boolean>(false);
-    const [sceneConfigs, setSceneConfigs] = useState<SceneConfig[]>();
-    const [dropdownValue, setDropdownValue] = useState<string>();
     const [isFocus, setIsFocus] = useState(false);
-    const [dropDownOptions, setDropdownOptions] = useState<{ label: string, value: string }[]>([{
+    const [dropDownOptions, setDropdownOptions] = useState<DropdownOption[]>([{
         label: '',
         value: ''
     }]);
 
     const load = async () => {
         setLoading(true);
+
+        // Should be moved to a service class;
         try {
+            const sceneList = await obsService.getScenes();
 
-            const defaultDropdownOptions: [{ label: string, value: string }] = [{
-                label: 'Default configuration',
-                value: 'default'
-            }];
-            // If no stored scene configs exist we display everything!
-            const storedSceneConfigs = await AsyncStorage.getItem('sceneConfig');
-            console.log('StoredSceneConfig: ' + storedSceneConfigs);
-            // Need extra validation for edge cases. Stored and removed config items will be stored as "[]".
-            if (storedSceneConfigs && (JSON.parse(storedSceneConfigs)) && (JSON.parse(storedSceneConfigs) as SceneConfig[]).length > 0) {
+            const currentSceneName = await obsService.getCurrentScene();
+            const currentScene = sceneList.find((scene) => scene.sceneName == currentSceneName);
 
-                const parsedConfigs = JSON.parse(storedSceneConfigs) as SceneConfig[];
-                setSceneConfigs(parsedConfigs);
-                parsedConfigs.forEach((sceneConfig: SceneConfig) => {
-                    defaultDropdownOptions.push({
-                        label: sceneConfig.configTitle,
-                        value: sceneConfig.configTitle
-                    })
-                });
-            } else {
-                
-            }
-            const sceneList = await getScenes(obs);
             setScenes(sceneList);
+            setSelectedScene(currentScene);
+            console.log(currentScene?.sceneItems);
+            setSceneItems(currentScene?.sceneItems);
 
-            defaultDropdownOptions.push({
-                label: 'New',
-                value: 'new'
-            });
-            setDropdownOptions(defaultDropdownOptions);
-            setDropdownValue(defaultDropdownOptions[0].value);
-
-            const statsData = await getStats(obs);
+            const statsData = await obsService.getStats();
             setStats(statsData);
 
-            const streamStatus: any = obs.call('GetStreamStatus');
+            const streamStatus = await obsService.getStreamStatus();
             setLive(streamStatus.outputActive);
 
         } catch (error) {
@@ -92,23 +69,10 @@ export function SceneScreen(props: { navigation: any, route: any }) {
         load();
     }, []);
 
-    /*useEffect(() => {
-        const interval = setInterval(async () => {
-            const statsData = await getStats(obs);
-            setStats(statsData);
-
-            const streamStatus: any = obs.call('GetStreamStatus');
-            setLive(streamStatus.outputActive);
-        }, 2000);
-
-        return () => clearInterval(interval);
-    }, [stats]);*/
-
 
     useEffect(() => {
         const listener = () => {
             console.log('Event triggered')
-            setDropdownValue(dropDownOptions[0].value)
             load();
         }
         emitter.on('configAddedEvent', listener);
@@ -118,72 +82,27 @@ export function SceneScreen(props: { navigation: any, route: any }) {
         }
     }, []);
 
-    const handleClick = async (item: Item) => {
-
-        switch (item.type) {
-            case SceneType.SCENE:
-                await setScene(obs, (item as Scene).sceneName);
-                break;
-            case SceneType.INPUT:
-                await toggleInput(obs, (item as Input).inputName);
-                break;
-            case SceneType.SOURCE:
-                console.log('toggle source');
-                break;
-            default:
-                console.log('Invalid item');
-                break;
-        }
-
-    }
-
-
-    const changeSceneConfiguration = async (item: { label: string, value: string }) => {
-
-        // Need better way to handle the default dropdown options.
-
-        if (item.value == 'new') {
-            setDropdownValue('default');
-            navigation.navigate('newSceneConfigScreen', { obs: obs });
-            return;
-        }
-
+    const changeSceneConfiguration = async (item: Scene) => {
         try {
-            setLoading(true);
-            if (item.value == 'default') {
-                const sceneList = await getScenes(obs);
-                setScenes(sceneList);
-            } else if (sceneConfigs) {
-                const selectedConfig = sceneConfigs.filter((config) => config.configTitle == item.value);
-                setScenes(selectedConfig[0].sceneItems);
+            if (selectedScene !== item) {
+                setSelectedScene(item);
+                setSceneItems(item?.sceneItems);
+                await obsService.setScene(item.sceneName);
             }
-            // dropdown value
-            setDropdownValue(item.value);
         } catch (error) {
             console.log(error);
         } finally {
             setLoading(false);
         }
-
     }
-
-    const dropDownRenderItem = (item: any) => {
-        return (
-            <View style={{
-                padding: 17,
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <Text style={{
-                    flex: 1,
-                    fontSize: 16
-                }}>{item.label}</Text>
-                {item.value === 'new' ? (
-                    <MaterialCommunityIcons name='plus-circle' size={24} color='gray' />
-                ) : (item.value != 'default') && <MaterialCommunityIcons name='trash-can' size={24} color='gray' onPress={() => warnUser(item)} />}
-            </View>
-        )
+    const updateSceneConfiguration = (item: SceneItem, response: any) => {
+        if (typeof response === "boolean") {
+            setSceneItems((prevItems) =>
+                prevItems!.map((sceneItem) =>
+                    sceneItem.sourceName === item.sourceName ? { ...sceneItem, sourceActive: response } : sceneItem
+                )
+            );
+        }
     }
 
     const warnUser = (item: { label: string, value: string }) => {
@@ -202,55 +121,60 @@ export function SceneScreen(props: { navigation: any, route: any }) {
 
         setLoading(true);
         try {
-            const index = sceneConfigs?.findIndex((config) => config.configTitle == item.value);
-            const filteredConfigs = sceneConfigs?.filter((config) => config.configTitle != item.value);
-            const filteredDropDownOptions = dropDownOptions.filter((option) => option.value != item.value);
-            setSceneConfigs(filteredConfigs);
-            setDropdownOptions(filteredDropDownOptions);
-            if (index && index > -1 && filteredConfigs) {
-                setDropdownValue(dropDownOptions[index - 1].value);
-                setScenes(filteredConfigs[index - 1].sceneItems)
-            } else {
-                setDropdownValue(dropDownOptions[0].value);
-                const sceneList = await getScenes(obs);
-                setScenes(sceneList);
-            }
-            await AsyncStorage.setItem('sceneConfig', JSON.stringify(filteredConfigs));
 
         } catch (error) {
             console.log(error);
         } finally {
             setLoading(false);
         }
-
-
     }
 
-    const Row = ({ item, index }: { item: Item, index: number }) => {
-        // To handle the case if there is only one item at a certain row.
-        if (scenes) {
-
-            if (item.type == SceneType.INPUT) {
-                return (
-                    <InputOption obs={obs} item={item as Input} itemWidth={itemWidth} />
-                )
-            }
-
-            if (item.type == SceneType.SCENE) {
-                return (
-                    <SceneOption obs={obs} item={item as Scene} itemWidth={itemWidth} />
-                )
-            }
+    const handleItemAction = async (item: SceneItem) =>  {
+        switch (item.sourceType) {    
+            case ObsType.BROSWER_SOURCE:
+            case ObsType.DSHOW_INPUT:
+            case ObsType.GAME_CAPTURE:
+            case ObsType.MONITOR_CAPTURE:
+            case ObsType.WASAPI_OUTPUT_CAPTURE:
+                await obsService.setSceneItemEnabled(item.sourceId, item.sourceParentSceneName, !item.sourceActive);
+                return !item.sourceActive;
+            case ObsType.WASAPI_INPUT_CAPTURE:
+                return await obsService.toggleInput(item.sourceName);
+            default:
+                console.log("Invalid type.");
+                break;
         }
+        return null;
+    }
+
+    const Row = ({ item, index }: { item: SceneItem, index: number }) => {
+
+        const label = item.sourceType ? TypeDetails[item.sourceType].label : 'Unknown';
+        const color = item.sourceType ? TypeDetails[item.sourceType].color : EStyleSheet.value('$default');
+
         return (
-            <View style={{
-                flex: 1,
-                alignContent: 'center',
-                justifyContent: 'center'
-            }}>
-                <Text style={{ textAlign: 'center', fontSize: 20 }}>No commands found. Add a new configutation or create scenes in obs.</Text>
-            </View>
-        )
+            <TouchableOpacity
+                onPress={
+                    async () => {
+                        const response = await handleItemAction(item);
+                        console.log(response);
+                        updateSceneConfiguration(item, response);
+                    }
+                }
+                style={[{
+                    borderRadius: 6,
+                    aspectRatio: 1,
+                    backgroundColor: item.sourceActive ? color : '#FF2828',
+                    margin: 4,
+                    alignContent: 'center',
+                    justifyContent: 'center',
+                    width: itemWidth - 8
+                },
+                ]}
+            >
+                <Text style={{ textAlign: 'center', color: 'white', fontSize: 20 }}>{item.sourceName}</Text>
+                <Text style={{ position: 'absolute', top: 4, left: 4, color: 'white' }}>{label}</Text>
+            </TouchableOpacity>)
     }
 
     if (loading) {
@@ -267,7 +191,7 @@ export function SceneScreen(props: { navigation: any, route: any }) {
                     marginTop: 0,
                     height: 50,
                     backgroundColor: 'white',
-                    borderRadius: 12,
+                    borderRadius: 6,
                     padding: 12,
                     shadowColor: '#000',
                     shadowOffset: {
@@ -279,35 +203,34 @@ export function SceneScreen(props: { navigation: any, route: any }) {
 
                     elevation: 2,
 
-                }, isFocus && { shadowColor: EStyleSheet.value('$color') }]}
-                    data={dropDownOptions}
+                }, isFocus && { shadowColor: EStyleSheet.value('$default') }]}
+                    data={scenes!}
                     placeholder={!isFocus ? 'Select item' : '...'}
                     selectedTextStyle={{ fontSize: 16, }}
-                    labelField='label'
-                    valueField='value'
-                    value={dropdownValue}
+                    labelField='sceneName'
+                    valueField='sceneName'
+                    value={selectedScene}
                     onFocus={() => setIsFocus(true)}
                     onBlur={() => setIsFocus(false)}
-                    onChange={(item: { label: string, value: string }) => {
+                    onChange={(item: Scene) => {
                         changeSceneConfiguration(item);
                         setIsFocus(false);
                     }}
-                    renderItem={dropDownRenderItem}
                 >
-
                 </Dropdown>
             </View>
             <FlatList
-                contentContainerStyle={{ flex: 1 }}
+                scrollEnabled={true}
                 numColumns={numColumns}
-                data={scenes}
+                data={sceneItems}
                 renderItem={({ item, index }) => <Row item={item} index={index} />}
-                keyExtractor={(item: Scene, index: number) => item.sceneName}
+                keyExtractor={(item: SceneItem, index: number) => item.sourceName}
                 keyboardShouldPersistTaps='always'
             />
             {
+
                 stats && (
-                    <View style={{ backgroundColor: EStyleSheet.value('$color'), flexDirection: 'row', padding: 4 }}>
+                    <View style={{ backgroundColor: EStyleSheet.value('$default'), flexDirection: 'row', padding: 4 }}>
                         <Text style={{ color: 'white', marginHorizontal: 4 }}>FPS: {stats.activeFps.toFixed(0)}</Text>
                         <Text style={{ color: 'white', marginHorizontal: 4 }}>Dropped frames: {stats.outputSkippedFrames}</Text>
                         <View style={{ flex: 1 }}>

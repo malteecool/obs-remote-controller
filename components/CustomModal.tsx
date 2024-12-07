@@ -81,7 +81,7 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                     color: '#404E5C',
                 }}>Existing scenes</Text>
                 {
-                    obsItems.map((item) => {
+                    obsItems.map((item, index) => {
                         return (
                             <TouchableOpacity style={{
                                 margin: 3,
@@ -106,11 +106,12 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                                     handleSave(item, SceneType.SCENE);
                                     closeModal();
                                 }}
+                                key={index}
                             >
                                 <View style={{
 
                                 }}>
-                                    <Text style={{ textAlign: 'center', color: '#404E5C', fontWeight: '700', fontSize: 16 }}>{item.sceneName}</Text>
+                                    <Text style={{ textAlign: 'center', color: '#404E5C', fontWeight: '700', fontSize: 16 }}>{item.sceneName + " " + index}</Text>
                                 </View>
                             </TouchableOpacity>
                         )
@@ -125,16 +126,16 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
             <View>
                 <ScrollView>
                     {
-                        sceneItemsWrappers.map((item) => {
+                        sceneItemsWrappers.map((item, index) => {
                             return (
-                                <View>
+                                <View key={index}>
                                     <Text style={{
                                         textAlign: 'center',
                                         fontSize: 20,
                                         paddingVertical: 4,
                                     }}>{item.scene.sceneName}</Text>
                                     {
-                                        item.sceneItems && item.sceneItems.map((sceneItem) => {
+                                        item.sceneItems && item.sceneItems.map((sceneItem, sceneIndex) => {
                                             return (
                                                 <TouchableOpacity style={{
                                                     margin: 3,
@@ -154,10 +155,11 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                                                     elevation: 3,
                                                     height: 50,
                                                 }}
-                                                onPress={() => {
-                                                    //handleSave(sceneItem, SceneType.SOURCE)
-                                                    closeModal();
-                                                }}
+                                                    onPress={() => {
+                                                        //handleSave(sceneItem, SceneType.SOURCE)
+                                                        closeModal();
+                                                    }}
+                                                    key={sceneIndex}
                                                 >
                                                     <View style={{
                                                     }}>
@@ -188,7 +190,7 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                     color: '#404E5C',
                 }}>Available inputs</Text>
                 {
-                    inputs.map((item) => {
+                    inputs.map((item, index) => {
                         return (
                             <TouchableOpacity style={{
                                 margin: 3,
@@ -213,6 +215,7 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                                     handleSave(item, SceneType.INPUT);
                                     closeModal();
                                 }}
+                                key={index}
                             >
                                 <View>
                                     <Text style={{ textAlign: 'center', color: '#404E5C', fontWeight: '700', fontSize: 16 }}>{item.inputName}</Text>
@@ -246,7 +249,7 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                         flex: 1,
                         margin: 20,
                         backgroundColor: 'white',
-                        borderRadius: 20,
+                        borderRadius: 6,
                         padding: 12,
                         alignItems: 'center',
                         shadowColor: '#000',
@@ -288,7 +291,7 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                                         marginVertical: 10,
                                         height: 50,
                                         backgroundColor: 'white',
-                                        borderRadius: 12,
+                                        borderRadius: 6,
                                         padding: 12,
                                         shadowColor: '#000',
                                         shadowOffset: {
@@ -323,9 +326,7 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                                         :
                                         (
                                             <View style={{
-
                                             }}>
-
                                                 {
                                                     selectedType == SceneType.SCENE && (
                                                         <RenderScenes />
@@ -353,12 +354,12 @@ const CustomModal: React.FC<ModalProps> = ({ obs, modalVisible, closeModal, save
                             }}>
                                 <Pressable
                                     style={{
-                                        borderRadius: 20,
+                                        borderRadius: 6,
                                         alignItems: 'center',
                                         elevation: 2,
                                         marginVertical: 10,
                                         height: 50,
-                                        backgroundColor: EStyleSheet.value('$color'),
+                                        backgroundColor: EStyleSheet.value('$default'),
                                         justifyContent: 'center'
                                     }}
                                     onPress={() => {

@@ -13,7 +13,7 @@ import EStyleSheet from 'react-native-extended-stylesheet';
 import { buildStyles } from './Styles';
 import { NewSceneConfigScreen } from './components/NewSceneConfigScreen';
 
-const obs = new OBSWebSocket();
+//const obs = new OBSWebSocket();
 
 const Stack = createNativeStackNavigator();
 
@@ -38,7 +38,7 @@ export default function App() {
             </StatusBar>
             <NavigationContainer>
                 <Stack.Navigator>
-                    <Stack.Screen name="connectScreen" component={ConnectScreen} initialParams={{ obs: obs }}
+                    <Stack.Screen name="connectScreen" component={ConnectScreen} 
                         options={({ route }) => ({
                             headerShown: false,
                             transitionSpec: {

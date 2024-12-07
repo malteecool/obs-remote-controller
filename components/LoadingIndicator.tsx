@@ -8,7 +8,7 @@ export function LoadingIndicator(props: { text: string }) {
         <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#FFF', alignItems: 'center', justifyContent: 'center' }}>
             <StatusBar
                     backgroundColor="transparent"
-                    barStyle="dark-content"
+                    //barStyle="dark-content"
                     translucent={true}
                 >
                 </StatusBar>

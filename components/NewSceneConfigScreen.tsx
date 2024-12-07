@@ -51,7 +51,7 @@ export function NewSceneConfigScreen(props: { navigation: any, route: any }) {
             console.log(filteredItems);
             const newSceneConfig: SceneConfig = {
                 configTitle: title,
-                sceneItems: filteredItems
+                scenes: filteredItems
             }
             //await AsyncStorage.removeItem('sceneConfig');
             const sceneConfigs = await AsyncStorage.getItem('sceneConfig');
@@ -168,7 +168,7 @@ export function NewSceneConfigScreen(props: { navigation: any, route: any }) {
                 style={[{
                     borderRadius: 6,
                     aspectRatio: 1,
-                    backgroundColor: EStyleSheet.value('$color'),
+                    backgroundColor: EStyleSheet.value('$default'),
                     margin: 4,
                     alignSelf: 'flex-end',
                     alignContent: 'center',
@@ -188,7 +188,7 @@ export function NewSceneConfigScreen(props: { navigation: any, route: any }) {
                 style={[{
                     borderRadius: 6,
                     aspectRatio: 1,
-                    backgroundColor: EStyleSheet.value('$color'),
+                    backgroundColor: EStyleSheet.value('$default'),
                     margin: 4,
                     alignSelf: 'flex-end',
                     alignContent: 'center',
@@ -227,7 +227,7 @@ export function NewSceneConfigScreen(props: { navigation: any, route: any }) {
                         marginTop: 0,
                         height: 50,
                         backgroundColor: 'white',
-                        borderRadius: 12,
+                        borderRadius: 6,
                         padding: 12,
                         shadowColor: '#000',
                         shadowOffset: {
@@ -239,7 +239,7 @@ export function NewSceneConfigScreen(props: { navigation: any, route: any }) {
 
                         elevation: 2,
 
-                    }, isFocus && { borderWidth: 1, borderColor: EStyleSheet.value('$color') }]}
+                    }, isFocus && { borderWidth: 1, borderColor: EStyleSheet.value('$default') }]}
                     onFocus={() => setIsFocus(true)}
                     onBlur={() => setIsFocus(false)}
                     value={title}
@@ -262,7 +262,7 @@ export function NewSceneConfigScreen(props: { navigation: any, route: any }) {
                 {
                     [...selectedItems].map((item, index) => {
                         return (
-                            <Row item={item} index={index} />
+                            <Row item={item} index={index} key={item.name}/>
                         )
                     })
                 }
@@ -277,11 +277,11 @@ export function NewSceneConfigScreen(props: { navigation: any, route: any }) {
                 style={{
                     height: 'auto',
                     paddingVertical: 12,
-                    backgroundColor: EStyleSheet.value('$color'),
+                    backgroundColor: EStyleSheet.value('$default'),
                     alignContent: 'flex-end',
                     justifyContent: 'center',
                     margin: 4,
-                    borderRadius: 12,
+                    borderRadius: 6,
                 }}
                 onPress={() => _save()}
             >

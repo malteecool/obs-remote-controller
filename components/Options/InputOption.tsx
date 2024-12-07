@@ -38,7 +38,7 @@ const InputOption = (props: { obs: OBSWebSocket, item: Input, itemWidth: number 
                 justifyContent: 'center',
                 width: itemWidth - 8
             },
-            toggled ? { backgroundColor: EStyleSheet.value('$color') } : { backgroundColor: '#ff4646' }
+            toggled ? { backgroundColor: EStyleSheet.value('$default') } : { backgroundColor: '#ff4646' }
             ]}
             onPress={() => { onToggle() }}
         >

@@ -1,7 +1,5 @@
-import { BaseItem } from "./Item";
-import { Scene } from "./Scene";
+import { SceneItem } from "./SceneItem";
 
 export interface SceneConfig {
-    configTitle: string,
-    sceneItems: BaseItem[]
+    
 }
